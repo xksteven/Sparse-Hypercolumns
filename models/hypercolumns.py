@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from typing import Tuple
 
 def calculate_hyper_indices(in_planes, out_planes, prev_indices):
     _, _, in_h, in_w = in_planes.size()
@@ -16,11 +17,30 @@ def get_random_indices():
     out_size = (output_shape[0]*output_shape[1], 2)
     indices = sorted(np.random.uniform(high=x.size()[2], size=out_size))
 
-class hyper_columns():
+class hypercolumns(nn.Module):
 
-    def __init__(self):
-        if indices == None:
-            indices = get_random_indices()
+    def __init__(self, out_size: Tuple=None, full: boolean=False, indices: np.array=None):
+        """
+        
+        Arguments:
+            out_size:
+            full: 
+            indices:
+        """
+        if not indices and not out_size and not full:
+            print("Please provide either out_size or full.")
+            raise
+        self.full = full
+        if full:
+            return
+        total_size = (out_size[0]*out_size[1])
+        #init super
+        elif len(indices) < total_size:
+            indices = get_random_indices(indices)
+        elif len(indices) > total_size:
+            #TODO raise warning for this case
+            indices = indices[:total_size]
+        self.out_size = out_size
         self.indices = indices
 
     # be able to pass in a shape for hypercols
@@ -32,7 +52,7 @@ class hyper_columns():
     # this should work layer by layer
     # take in indices and return hyper column
 
-    def get_hypercolumn():
+    def get_hypercolumn(self):
        if self.sampling:
            if indices == None:
            indices_list = [indices]
@@ -61,10 +81,13 @@ class hyper_columns():
                hypercols[index] = nn.functional.interpolate(l, output_shape, mode= interp_mode)
 
 
-    def cat_features():
+    def cat_features(self, x: torch.Tensor):
         return torch.cat(x, dim=1)
 
     # The main method should take in a list of the features and return the hypercolumns
-    def create_hypercolumn(x):
+    def create_hypercolumn(self, x):
+        """
+        List of Torch tensors
+        """
 
 
