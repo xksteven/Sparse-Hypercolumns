@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from typing import Tuple, List
+from typing import Tuple, List, Optional
 
 TensorList = List[torch.Tensor]
 # IndexTuple = Tuple(np.array, np.array)
@@ -18,7 +18,7 @@ def calculate_hyper_indices(in_planes: torch.Tensor, out_planes:torch.Tensor, pr
     return np.asarray(new_rows, new_cols)
 
 
-def get_random_indices(in_size: Tuple, out_size: Tuple, indices: np.array) -> np.array:
+def get_random_indices(in_size: Tuple[int,int], out_size: Tuple[int,int], indices: np.array) -> np.array:
     total_size = (in_size[0]*in_size[1])
     elif len(indices) < total_size:
     elif len(indices) > total_size:
@@ -35,8 +35,9 @@ def get_random_indices(in_size: Tuple, out_size: Tuple, indices: np.array) -> np
 
 class Hypercolumns(nn.Module):
 
-    def __init__(self, in_size: Tuple=None, out_size: Tuple=(32,32), full: boolean=False, indices: np.array=None, 
-                 interp_mode: str="bilinear", which_layers: Tuple=None):
+    def __init__(self, in_size: Optional[Tuple[int,int]]=None, out_size: Tuple[int,int]=(32,32), 
+                 full: boolean=False, indices: Optional[np.array]=None, 
+                 interp_mode: str="bilinear", which_layers: Optional[Tuple[int, ...]]=None):
         """
         
         Arguments:
