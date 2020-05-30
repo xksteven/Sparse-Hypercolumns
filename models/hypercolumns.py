@@ -1,10 +1,13 @@
+import logging
 import numpy as np
 import torch
 import torch.nn as nn
 
-from typing import Tuple
+from typing import Tuple, List
 
-def calculate_hyper_indices(in_planes, out_planes, prev_indices):
+TensorList = List[torch.Tensor]
+
+def calculate_hyper_indices(in_planes: torch.Tensor, out_planes:torch.Tensor, prev_indices: np.array):
     _, _, in_h, in_w = in_planes.size()
     _, _, out_h, out_w = out_planes.size()
     rows, cols = prev_indices
@@ -13,13 +16,13 @@ def calculate_hyper_indices(in_planes, out_planes, prev_indices):
     new_cols = ((cols - in_w//2) * (out_w/in_w) + out_w//2).astype(np.int)
     return (new_rows, new_cols)
 
-def get_random_indices():
+def get_random_indices(out_size: Tuple, indices: np.array):
     out_size = (output_shape[0]*output_shape[1], 2)
     indices = sorted(np.random.uniform(high=x.size()[2], size=out_size))
 
-class hypercolumns(nn.Module):
+class Hypercolumns(nn.Module):
 
-    def __init__(self, out_size: Tuple=None, full: boolean=False, indices: np.array=None):
+    def __init__(self, out_size: Tuple=(32,32), full: boolean=False, indices: np.array=None):
         """
         
         Arguments:
@@ -27,18 +30,20 @@ class hypercolumns(nn.Module):
             full: 
             indices:
         """
+        super(Hypercolumns, self).__init__()
+        
         if not indices and not out_size and not full:
             print("Please provide either out_size or full.")
             raise
         self.full = full
-        if full:
-            return
+        
         total_size = (out_size[0]*out_size[1])
-        #init super
         elif len(indices) < total_size:
-            indices = get_random_indices(indices)
+            indices = get_random_indices(out_size, indices)
         elif len(indices) > total_size:
             #TODO raise warning for this case
+            logging.warning(f"Number of indices provided {len(indices)}" 
+                            "is greater than total out_size.")
             indices = indices[:total_size]
         self.out_size = out_size
         self.indices = indices
@@ -53,7 +58,9 @@ class hypercolumns(nn.Module):
     # take in indices and return hyper column
 
     def get_hypercolumn(self):
-       if self.sampling:
+        if self.full:
+            pass
+        elif self.sampling:
            if indices == None:
            indices_list = [indices]
 
@@ -74,18 +81,18 @@ class hypercolumns(nn.Module):
 
            hypercols = torch.cat(hypercols, dim=1)
 
-       # else we take the full feature maps as our hypercolumns
-       else:
+        # else we take the full feature maps as our hypercolumns
+        else:
            hypercols = [x1, x6, x7, x8]
            for index, l in enumerate(hypercols):
                hypercols[index] = nn.functional.interpolate(l, output_shape, mode= interp_mode)
 
 
-    def cat_features(self, x: torch.Tensor):
+    def cat_features(self, x: TensorList):
         return torch.cat(x, dim=1)
 
     # The main method should take in a list of the features and return the hypercolumns
-    def create_hypercolumn(self, x):
+    def create_hypercolumns(self, x: TensorList):
         """
         List of Torch tensors
         """
