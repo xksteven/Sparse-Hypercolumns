@@ -56,7 +56,6 @@ class Hypercolumns(nn.Module):
         self.full = full
         
         if in_size is not None:
-
                 indices = get_random_indices(in_size, out_size, indices)
 
         self.in_size = in_size
@@ -72,11 +71,6 @@ class Hypercolumns(nn.Module):
     # check if shape is bigger than any requested layer
     # scale layer to appropriate dimension and take full layer
     # Need option for full hypercolumn
-
-
-
-    def cat_features(self, x: TensorList):
-        return torch.cat(x, dim=1)
 
     
     # The main method should take in a list of the features and return the hypercolumns
