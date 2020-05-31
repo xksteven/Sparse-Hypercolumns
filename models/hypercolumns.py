@@ -18,18 +18,22 @@ def calculate_hyper_indices(in_planes: torch.Tensor, out_planes:torch.Tensor, pr
     return np.asarray(new_rows, new_cols)
 
 
-def get_random_indices(in_size: Tuple[int,int], out_size: Tuple[int,int], indices: np.array) -> np.array:
+def get_random_indices(in_size: Tuple[int,int], out_size: Tuple[int,int], indices: Optional[np.array]=None) -> np.array:
     total_size = (in_size[0]*in_size[1])
+    if indices is None: 
+        indices = []
     elif len(indices) < total_size:
+        total_size -= len(indices)
     elif len(indices) > total_size:
-        #TODO raise warning for this case
         logging.warning(f"Number of indices provided {len(indices)}" 
                         "is greater than total out_size.")
-        indices = indices[:total_size]    
+        indices = indices[:total_size]
+        return indices
     # sorted to keep some semblance of the original spatial information
     # might not be necessary
-    indices = np.asarray(sorted(np.random.uniform(high=in_size[0], size=out_size[0] ), 
-                     np.random.uniform(high=in_size[1], size=out_size[1])))
+    tmp = np.asarray(sorted(np.random.uniform(high=in_size[0], size=total_size ), 
+                     np.random.uniform(high=in_size[1], size=total_size)))
+    indices = np.concatenate((indices, tmp), axis=0)
     return indices
     
 
@@ -55,10 +59,11 @@ class Hypercolumns(nn.Module):
             raise
         self.full = full
         
-        if in_size is not None:
-                indices = get_random_indices(in_size, out_size, indices)
+        # Consider if it should be computed before runtime.
+#         if in_size is not None:
+#                 indices = get_random_indices(in_size, out_size, indices)
 
-        self.in_size = in_size
+#         self.in_size = in_size
         self.out_size = out_size
         self.indices = indices
         self.interp_mode = interp_mode
@@ -85,23 +90,26 @@ class Hypercolumns(nn.Module):
             hypercols = torch.cat(hyperlist, dim=1)
             return hyercols
         else:
-            if self.in_size is None:
+            # TODO consider if we should allow for recomputing this
+            if self._index_list is None:
                 # Assumes BCHW format
                 self.in_size = hyperlist[0].size()[-2:]
                 #TODO not done
-                indices_list = [self.]
+                self.indices = get_random_indices(self.in_size, self.out_size, self.indices)
+                indices_list = [self.indices]
 
-            # calculate the indices for each layer
-            for index, layer in enumerate(hyperlist):
-                if (index == (len(hyperlist) - 1)):
-                    break
-                prev_indices = indices_list[-1]
-                in_planes = hyperlist[index]
-                out_planes = hyperlist[index+1]
-                indices_list.append(calculate_hyper_indices(in_planes, out_planes, prev_indices))
+                # calculate the indices for each layer
+                for index, layer in enumerate(hyperlist):
+                    if (index == (len(hyperlist) - 1)):
+                        break
+                    prev_indices = indices_list[-1]
+                    in_planes = hyperlist[index]
+                    out_planes = hyperlist[index+1]
+                    indices_list.append(calculate_hyper_indices(in_planes, out_planes, prev_indices))
+                self._index_list = indices_list
 
             for index, layer in enumerate(hyperlist):
-                rows, cols = indices_list[index]
+                rows, cols = self.index_list[index]
                 hyperlist[index] = hyperlist[index][:,:,rows,cols]
 
             hypercols = torch.cat(hyperlist, dim=1)
