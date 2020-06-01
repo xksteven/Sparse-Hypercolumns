@@ -37,7 +37,8 @@ def get_random_indices(in_size: Tuple[int,int], out_size: Tuple[int,int], indice
     sorting = np.argsort(tmp[0])
     tmp = tmp[:, sorting]
     if indices is not None:
-        indices = np.concatenate((indices, tmp), axis=0)
+        #print(indices.shape, tmp.shape)
+        indices = np.concatenate((indices, tmp), axis=1)
     else:
         indices = tmp
     return indices
@@ -46,7 +47,7 @@ def get_random_indices(in_size: Tuple[int,int], out_size: Tuple[int,int], indice
 class Hypercolumns(nn.Module):
 
     def __init__(self, in_size: Optional[Tuple[int,int]]=None, out_size: Tuple[int,int]=(32,32), 
-                 full: bool=False, indices: Optional[np.array]=None, 
+            full: bool=False, indices: Optional[np.array]=None, recompute_indices: bool=False, 
                  interp_mode: str="bilinear", which_layers: Optional[Tuple[int, ...]]=None):
         """
         
@@ -60,11 +61,11 @@ class Hypercolumns(nn.Module):
         """
         super(Hypercolumns, self).__init__()
         
-        if not indices and not out_size and not full:
+        if not out_size and not full:
             print("Please provide either out_size or full.")
             raise
         self.full = full
-        
+        self.recompute_indices = recompute_indices
         # Consider if it should be computed before runtime.
 #         if in_size is not None:
 #                 indices = get_random_indices(in_size, out_size, indices)
@@ -114,7 +115,7 @@ class Hypercolumns(nn.Module):
                 hyperlist[index] = nn.functional.interpolate(layer, self.out_size, mode= self.interp_mode)
         else:
             # TODO consider if we should allow for recomputing this
-            if self._index_list is None:
+            if self._index_list is None or self.recompute_indices:
                 self._calc_layer_indices(hyperlist)
             for index, layer in enumerate(hyperlist):
                 rows, cols = self._index_list[index]
