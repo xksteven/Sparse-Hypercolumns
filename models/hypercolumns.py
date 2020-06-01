@@ -13,15 +13,15 @@ def calculate_hyper_indices(in_planes: torch.Tensor, out_planes:torch.Tensor, pr
     _, _, out_h, out_w = out_planes.size()
     rows, cols = prev_indices
     # center the rows (or cols), then scale, then back to 0 to height (or width)
-    new_rows = ((rows - in_h//2) * (out_h/in_h) + out_h//2).astype(np.int)
-    new_cols = ((cols - in_w//2) * (out_w/in_w) + out_w//2).astype(np.int)
-    return np.asarray(new_rows, new_cols)
+    new_rows = ((rows - in_h//2) * (out_h/in_h) + out_h//2)
+    new_cols = ((cols - in_w//2) * (out_w/in_w) + out_w//2)
+    return np.asarray((new_rows, new_cols))
 
 
 def get_random_indices(in_size: Tuple[int,int], out_size: Tuple[int,int], indices: Optional[np.array]=None) -> np.array:
     total_size = (in_size[0]*in_size[1])
     if indices is None: 
-        indices = []
+        pass
     elif len(indices) < total_size:
         total_size -= len(indices)
     elif len(indices) > total_size:
@@ -31,9 +31,15 @@ def get_random_indices(in_size: Tuple[int,int], out_size: Tuple[int,int], indice
         return indices
     # sorted to keep some semblance of the original spatial information
     # might not be necessary
-    tmp = np.asarray(sorted(np.random.uniform(high=in_size[0], size=total_size ), 
-                     np.random.uniform(high=in_size[1], size=total_size)))
-    indices = np.concatenate((indices, tmp), axis=0)
+    tmp = [np.random.randint(low=0, high=in_size[0], size=total_size),
+           np.random.randint(low=0, high=in_size[1], size=total_size)]
+    tmp = np.asarray(tmp)
+    sorting = np.argsort(tmp[0])
+    tmp = tmp[:, sorting]
+    if indices is not None:
+        indices = np.concatenate((indices, tmp), axis=0)
+    else:
+        indices = tmp
     return indices
     
 
@@ -111,7 +117,7 @@ class Hypercolumns(nn.Module):
             if self._index_list is None:
                 self._calc_layer_indices(hyperlist)
             for index, layer in enumerate(hyperlist):
-                rows, cols = self.index_list[index]
+                rows, cols = self._index_list[index]
                 hyperlist[index] = hyperlist[index][:,:,rows,cols]
 
         hypercols = torch.cat(hyperlist, dim=1)
