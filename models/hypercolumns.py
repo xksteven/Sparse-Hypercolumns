@@ -40,7 +40,7 @@ def get_random_indices(in_size: Tuple[int,int], out_size: Tuple[int,int], indice
 class Hypercolumns(nn.Module):
 
     def __init__(self, in_size: Optional[Tuple[int,int]]=None, out_size: Tuple[int,int]=(32,32), 
-                 full: boolean=False, indices: Optional[np.array]=None, 
+                 full: bool=False, indices: Optional[np.array]=None, 
                  interp_mode: str="bilinear", which_layers: Optional[Tuple[int, ...]]=None):
         """
         
