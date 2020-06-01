@@ -77,40 +77,42 @@ class Hypercolumns(nn.Module):
     # scale layer to appropriate dimension and take full layer
     # Need option for full hypercolumn
 
-    
+    def _calc_layer_indices(self, hyperlist: TensorList):
+        # Assumes BCHW format
+        self.in_size = hyperlist[0].size()[-2:]
+        self.indices = get_random_indices(self.in_size, self.out_size, self.indices)
+        indices_list = [self.indices]
+
+        # calculate the indices for each layer
+        for index, layer in enumerate(hyperlist):
+            if (index == (len(hyperlist) - 1)):
+                break
+            prev_indices = indices_list[-1]
+            in_planes = hyperlist[index]
+            out_planes = hyperlist[index+1]
+            indices_list.append(calculate_hyper_indices(in_planes, out_planes, prev_indices))
+        self._index_list = indices_list
+        
     # The main method should take in a list of the features and return the hypercolumns
     def create_hypercolumns(self, hyperlist: TensorList) -> torch.Tensor:
         """
-        List of Torch tensors
+        Arguments:
+            hyperlist: List of Torch tensors
+        
+        Returns:
+            concatenated torch.Tensor that represents the hypercolumns
         """
 
         if self.full:
             for index, layer in enumerate(hyperlist):
                 hyperlist[index] = nn.functional.interpolate(layer, self.out_size, mode= self.interp_mode)
-            hypercols = torch.cat(hyperlist, dim=1)
-            return hyercols
         else:
             # TODO consider if we should allow for recomputing this
             if self._index_list is None:
-                # Assumes BCHW format
-                self.in_size = hyperlist[0].size()[-2:]
-                #TODO not done
-                self.indices = get_random_indices(self.in_size, self.out_size, self.indices)
-                indices_list = [self.indices]
-
-                # calculate the indices for each layer
-                for index, layer in enumerate(hyperlist):
-                    if (index == (len(hyperlist) - 1)):
-                        break
-                    prev_indices = indices_list[-1]
-                    in_planes = hyperlist[index]
-                    out_planes = hyperlist[index+1]
-                    indices_list.append(calculate_hyper_indices(in_planes, out_planes, prev_indices))
-                self._index_list = indices_list
-
+                self.calc_layer_indices(hyperlist)
             for index, layer in enumerate(hyperlist):
                 rows, cols = self.index_list[index]
                 hyperlist[index] = hyperlist[index][:,:,rows,cols]
 
-            hypercols = torch.cat(hyperlist, dim=1)
-            return hypercols
+        hypercols = torch.cat(hyperlist, dim=1)
+        return hypercols
