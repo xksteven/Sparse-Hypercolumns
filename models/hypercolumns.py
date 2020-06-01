@@ -109,7 +109,7 @@ class Hypercolumns(nn.Module):
         else:
             # TODO consider if we should allow for recomputing this
             if self._index_list is None:
-                self.calc_layer_indices(hyperlist)
+                self._calc_layer_indices(hyperlist)
             for index, layer in enumerate(hyperlist):
                 rows, cols = self.index_list[index]
                 hyperlist[index] = hyperlist[index][:,:,rows,cols]
