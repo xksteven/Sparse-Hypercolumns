@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
-from .utils import load_state_dict_from_url
+from .hypercolumns import Hypercolumns
+from torch.hub import load_state_dict_from_url
 
 
 __all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
@@ -21,15 +22,6 @@ model_urls = {
 }
 
 
-def calculate_hyper_indices(in_planes, out_planes, prev_indices):
-    _, _, in_h, in_w = in_planes.size()
-    _, _, out_h, out_w = out_planes.size()
-    rows, cols = prev_indices
-    new_rows = (rows - in_h//2) * (out_h/in_h) + out_h//2
-    new_cols = (cols - in_w//2) * (out_w/in_w) + out_w//2
-    return (new_rows, new_cols)
-
-
 def conv3x3(in_planes, out_planes, stride=1, groups=1, dilation=1):
     """3x3 convolution with padding"""
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
@@ -43,7 +35,6 @@ def conv1x1(in_planes, out_planes, stride=1):
 
 class BasicBlock(nn.Module):
     expansion = 1
-    __constants__ = ['downsample']
 
     def __init__(self, inplanes, planes, stride=1, downsample=None, groups=1,
                  base_width=64, dilation=1, norm_layer=None):
@@ -83,8 +74,13 @@ class BasicBlock(nn.Module):
 
 
 class Bottleneck(nn.Module):
+    # Bottleneck in torchvision places the stride for downsampling at 3x3 convolution(self.conv2)
+    # while original implementation places the stride at the first 1x1 convolution(self.conv1)
+    # according to "Deep residual learning for image recognition"https://arxiv.org/abs/1512.03385.
+    # This variant is also known as ResNet V1.5 and improves accuracy according to
+    # https://ngc.nvidia.com/catalog/model-scripts/nvidia:resnet_50_v1_5_for_pytorch.
+
     expansion = 4
-    __constants__ = ['downsample']
 
     def __init__(self, inplanes, planes, stride=1, downsample=None, groups=1,
                  base_width=64, dilation=1, norm_layer=None):
@@ -130,13 +126,17 @@ class ResNet(nn.Module):
 
     def __init__(self, block, layers, num_classes=1000, zero_init_residual=False,
                  groups=1, width_per_group=64, replace_stride_with_dilation=None,
-                 norm_layer=None, sampling=False):
+                 norm_layer=None, out_size=(32,32), full_hypercolumns=False,
+                 indices=None, interp_mode="bilinear", which_layers=None):
         super(ResNet, self).__init__()
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
         self._norm_layer = norm_layer
 
-        self.sampling = sampling
+        self.hypercolumns = Hypercolumns(out_size=out_size, 
+                 full=full_hypercolumns, indices=indices, 
+                 interp_mode=interp_mode, which_layers=which_layers)
+        
         self.inplanes = 64
         self.dilation = 1
         if replace_stride_with_dilation is None:
@@ -204,52 +204,29 @@ class ResNet(nn.Module):
 
         return nn.Sequential(*layers)
 
-    def forward(self, x, indices=None, output_shape=(128,128), interp_mode="nearest"):
-        x1 = self.conv1(x)
-        x2 = self.bn1(x1)
-        x3 = self.relu(x2)
-        x4 = self.maxpool(x3)
+    def _forward_impl(self, x):
+        # See note [TorchScript super()]
+        x0 = x
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.maxpool(x)
 
-        x5 = self.layer1(x4)
-        x6 = self.layer2(x5)
-        x7 = self.layer3(x6)
-        x8 = self.layer4(x7)
+        x1 = self.layer1(x)
+        x2 = self.layer2(x1)
+        x3 = self.layer3(x2)
+        x4 = self.layer4(x3)
 
-        x9 = self.avgpool(x8)
-        x10 = torch.flatten(x9, 1)
-        x11 = self.fc(x10)
+        x5 = self.avgpool(x4)
+        x5 = torch.flatten(x5, 1)
+        x5 = self.fc(x5)
 
-       if self.sampling:
-           if indices == None:
-               out_size = (output_shape[0]*output_shape[1], 2)
-               indices = sorted(np.random.uniform(high=x.size()[2], size=out_size))
-           indices_list = [indices]
+        hypercolumns = self.hypercolumns.create_hypercolumns(
+            [x0,x1,x2,x3,x4])
+        return x5, hypercolumns
 
-           hypercols = [x1, x6, x7, x8]
-
-           # calculate the indices for each layer
-           for index, l in enumerate(hypercols):
-               if (index == (len(hypercols) - 1)):
-                   break
-               prev_indices = indices_list[-1]
-               in_planes = hyper_cols[index]
-               out_planes = hyper_cols[index+1]
-               indices_list.append(calculate_hyper_indices(in_planes, out_planes, prev_indices))
-           
-           for index, l in enumerate(hypercols):
-               rows, cols = indices_list[index]
-               hypercols[index] = hypercols[index][:,:,rows,cols]
-
-           hypercols = torch.cat(hypercols, dim=1)
-
-       # else we take the full feature maps as our hypercolumns
-       else:
-           hypercols = [x1, x6, x7, x8]
-           for index, l in enumerate(hypercols):
-               hypercols[index] = nn.functional.interpolate(l, output_shape, mode= interp_mode)
-           hypercols = torch.cat(hypercols, dim=1)
-
-        return x11, hypercols
+    def forward(self, x):
+        return self._forward_impl(x)
 
 
 def _resnet(arch, block, layers, pretrained, progress, **kwargs):
@@ -257,7 +234,7 @@ def _resnet(arch, block, layers, pretrained, progress, **kwargs):
     if pretrained:
         state_dict = load_state_dict_from_url(model_urls[arch],
                                               progress=progress)
-        model.load_state_dict(state_dict, strict=False)
+        model.load_state_dict(state_dict)
     return model
 
 
