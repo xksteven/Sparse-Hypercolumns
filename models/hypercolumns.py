@@ -112,7 +112,7 @@ class Hypercolumns(nn.Module):
 
         if self.full:
             for index, layer in enumerate(hyperlist):
-                hyperlist[index] = nn.functional.interpolate(layer, self.out_size, mode= self.interp_mode)
+                hyperlist[index] = nn.functional.interpolate(layer, self.out_size, mode= self.interp_mode, align_corners=True)
         else:
             # TODO consider if we should allow for recomputing this
             if self._index_list is None or self.recompute_indices:
