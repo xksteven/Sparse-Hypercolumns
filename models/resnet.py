@@ -126,7 +126,9 @@ class ResNet(nn.Module):
 
     def __init__(self, block, layers, num_classes=1000, zero_init_residual=False,
                  groups=1, width_per_group=64, replace_stride_with_dilation=None,
-                 norm_layer=None, out_size=(32,32), full_hypercolumns=False,
+                 norm_layer=None, 
+                 # hypercolumn arguments
+                 out_size=None, full_hypercolumns=False,
                  indices=None, interp_mode="bilinear", which_layers=None):
         super(ResNet, self).__init__()
         if norm_layer is None:

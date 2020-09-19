@@ -7,10 +7,10 @@ import unittest
 class test_resnet(unittest.TestCase):
 
     def test_creation(self):
-        model = resnet.resnet50()
+        model = resnet.resnet50(out_size=32)
 
-    def test_hypercolumn(self):
-        model = resnet.resnet50()
+    def test_hypercolumn_square_outsize(self):
+        model = resnet.resnet50(out_size=[32,32])
         res = model(torch.randn(1, 3, 256, 256))
     
     def test_fullhypercolumn(self):
@@ -28,6 +28,12 @@ class test_resnet(unittest.TestCase):
              [100, 14, 101]])
         res = model(torch.randn(1, 3, 256, 256))
 
+    def test_shape(self):
+        indices = np.array([[0,1,10], [10,20,15]])
+        x = torch.rand(1,3,224,224)
+        model = resnet.resnet18(indices=[indices[0, :], indices[1, :]])
+        res = model(x)
+        assert res[1].size() == torch.Size([1, 963, 3])
 
 
 if __name__ == "__main__":
