@@ -4,7 +4,7 @@ This is an implementation of zoomout or hypercolumns in Pytorch as seen in paper
 
 This is based off of the models in Torchvision 1.5.0.  
 
-Currently implemented: 
+Currently implemented:  
 Resnet
 
 TODOs:  
@@ -25,6 +25,8 @@ Possible arguments:
     model = resnet18(full_hypercolumns=True)
 
     # or one can provide a partial of indices one wants to use for the output
+    # out_size reflects the final output shape of the hypercolumns
+    
     model = resnet18(indices=[[0,1,37],[2,5,49]], out_size=(50,50))
     # format of indices is [[row_indices], [column_indices]]
 
