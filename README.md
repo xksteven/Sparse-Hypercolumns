@@ -7,10 +7,8 @@ This is based off of the models in Torchvision 1.5.0.
 Currently implemented: 
 Resnet
 
-TODOs:
+TODOs:  
 other models (densenet,...)
-
-Passing in partial indices for hypercolumns
 
 ## Examples
 
